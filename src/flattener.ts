@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import {writeFileSync} from 'fs';
+import {writeFileSync, readFileSync} from 'fs';
 import path from 'path';
 import mergeAllOf, {Options} from 'json-schema-merge-allof';
-import {dereference, JSONSchema,} from 'json-schema-ref-parser';
+import {dereference, parse, JSONSchema,} from '@apidevtools/json-schema-ref-parser';
 import minimist from 'minimist';
 import {OpenApi, RequestBody, Response} from './Interfaces/OpenApi'
 
@@ -15,16 +15,17 @@ const defaultOptions: Options = {
 }
 const argv = minimist(process.argv.slice(2));
 if (!argv.s || !argv.o) {
-    console.log('USAGE: ' + process.argv[1] + ' -s <schema> -o <output> [...]');
+    console.log('USAGE: ' + process.argv[1] + ' -s <input file> -o <output file> [-d]');
     process.exit(1);
 }
 
 const input = path.resolve(argv.s);
 
+
 function mergeResponse(key: string, response: Response) {
     if (!response?.content || !('application/json' in response.content)) return
 
-    let responseSchema = response.content['application/json'].schema
+    let responseSchema = response.content['application/json']?.schema
     if (!responseSchema) return
 
     let mergedSchema = mergeAllOf(responseSchema, defaultOptions)
@@ -41,54 +42,146 @@ function mergeRequestBody(requestBody: RequestBody) {
         requestBody.content['application/json'].schema = mergedSchema
 }
 
-dereference(input, {}, (err: Error | null, schema: JSONSchema | undefined) => {
-    if (err) {
-        console.error(err);
-    } else {
-        let openApiSchema: OpenApi = <OpenApi>schema;//we get an object which has OpenApi keys as properties, so we cast it here
-        let output = path.resolve(argv.o);
-        let ext = path.parse(output).ext;
+function mergeAllOfInternal(oas: OpenApi, deref: boolean) {
+    Object.entries(oas.paths).forEach(([_, path]) => {
+        console.log(_);
+        if (path.get) {
+            console.log('GET')
+            Object.entries(path.get.responses).forEach(([key, response]) => {
+                mergeResponse(key, response)
+            })
+        }
 
-        Object.entries(openApiSchema.paths).forEach(([_, path]) => {
-            if (path.get) {
-                console.log('GET')
-                Object.entries(path.get.responses).forEach(([key, response]) => {
-                    mergeResponse(key, response)
-                })
-            }
+        if (path.head) {
+            console.log('HEAD')
+            Object.entries(path.head.responses).forEach(([key, response]) => {
+                mergeResponse(key, response)
+            })
+        }
 
-            if (path.post) {
-                console.log('POST')
-                Object.entries(path.post.responses).forEach(([key, response]) => {
-                    mergeResponse(key, response);
-                })
+        if (path.post) {
+            console.log('POST')
+            Object.entries(path.post.responses).forEach(([key, response]) => {
+                mergeResponse(key, response);
+            })
+            if (path.post.requestBody) {
                 mergeRequestBody(path.post.requestBody)
             }
-        })
-        if (openApiSchema.components.schemas)
-            Object.entries(openApiSchema.components.schemas).forEach(([key, schema]) => {
-                openApiSchema.components.schemas[key] = mergeAllOf(schema, defaultOptions)
-            })
-        if (openApiSchema.components.examples)
-            Object.entries(openApiSchema.components.examples).forEach(([key, schema]) => {
-                openApiSchema.components.examples[key] = mergeAllOf(schema, defaultOptions)
-            })
-        if (openApiSchema.components.responses)
-            Object.entries(openApiSchema.components.responses).forEach(([key, schema]) => {
-                openApiSchema.components.responses[key] = mergeAllOf(schema, defaultOptions)
-            })
-        if (ext === '.json') {
-            let data = JSON.stringify(openApiSchema);
-            writeFileSync(output, data, {encoding: 'utf8', flag: 'w'});
-        } else if (ext.match(/^\.?(yaml|yml)$/)) {
-            if (schema) {
-                let yaml = require('node-yaml');
-                yaml.writeSync(output, openApiSchema, {encoding: 'utf8'})
-            }
-        } else {
-            console.error(`Unrecognised output file type: ${output}`);
-            process.exit(1);
         }
-        console.log(`Wrote file: ${output}`);
+
+        if (path.patch) {
+            console.log('PATCH')
+            Object.entries(path.patch.responses).forEach(([key, response]) => {
+                mergeResponse(key, response);
+            })
+            if (path.patch.requestBody) {
+                mergeRequestBody(path.patch.requestBody)
+            }
+        }
+
+        if (path.put) {
+            console.log('PUT')
+            Object.entries(path.put.responses).forEach(([key, response]) => {
+                mergeResponse(key, response);
+            })
+            if (path.put.requestBody) {
+                mergeRequestBody(path.put.requestBody)
+            }
+        }
+
+        if (path.delete) {
+            console.log('DELETE')
+            Object.entries(path.delete.responses).forEach(([key, response]) => {
+                mergeResponse(key, response);
+            })
+            if (path.delete.requestBody) {
+                mergeRequestBody(path.delete.requestBody)
+            }
+        }
+
+        if (typeof oas.components !== 'undefined' && oas.components) {
+            if (deref) {
+              // We have already dereferenced everything, don't need components in the output
+              delete oas.components;
+            } else {
+                let components = oas.components;
+                if (components.parameters)
+                    Object.entries(components.parameters).forEach(([key, schema]) => {
+                        components.parameters[key] = mergeAllOf(schema, defaultOptions)
+                    })
+                if (components.schemas)
+                    Object.entries(components.schemas).forEach(([key, schema]) => {
+                        components.schemas[key] = mergeAllOf(schema, defaultOptions)
+                    })
+                if (components.examples)
+                    Object.entries(components.examples).forEach(([key, schema]) => {
+                        components.examples[key] = mergeAllOf(schema, defaultOptions)
+                    })
+                if (components.responses)
+                    Object.entries(components.responses).forEach(([key, schema]) => {
+                        components.responses[key] = mergeAllOf(schema, defaultOptions)
+                    })
+                if (components.requestBodies)
+                    Object.entries(components.requestBodies).forEach(([key, schema]) => {
+                        components.requestBodies[key] = mergeAllOf(schema, defaultOptions)
+                    })
+                if (components.callbacks)
+                    Object.entries(components.callbacks).forEach(([key, schema]) => {
+                        components.callbacks[key] = mergeAllOf(schema, defaultOptions)
+                    })
+            }
+        }
+    });
+}
+
+function writeOutput(oas: OpenApi, outFile: string) {
+    let output = path.resolve(outFile);
+    let ext = path.parse(output).ext;
+    if (ext === '.json') {
+        let data = JSON.stringify(oas);
+        writeFileSync(output, data, {encoding: 'utf8', flag: 'w'});
+    } else if (ext.match(/^\.?(yaml|yml)$/)) {
+        if (oas) {
+            let yaml = require('node-yaml');
+            yaml.writeSync(output, oas, { encoding: 'utf8', noRefs: true, lineWidth: -1})
+        }
+    } else {
+        console.error(`Unrecognised output file type: ${output}`);
+        process.exit(1);
     }
-});
+    console.log(`Wrote file: ${output}`);
+}
+
+
+if (argv.d) {
+
+    // This option enables both "allOf" resolution and dereferencing
+
+    dereference(input, {}, (err: Error | null, schema: JSONSchema | undefined) => {
+        if (err) {
+            console.error(err);
+        } else {
+
+            //we get an object which has OpenApi keys as properties, so we cast it here
+            let openApiSchema: OpenApi = <OpenApi>schema;
+            mergeAllOfInternal(openApiSchema,true);
+            writeOutput(openApiSchema,argv.o);
+        }
+    });
+
+} else {
+
+    parse(input, {}, (err: Error | null, schema: JSONSchema | undefined) => {
+
+        if (err) {
+            console.error(err);
+        } else {
+
+            //we get an object which has OpenApi keys as properties, so we cast it here
+            let openApiSchema: OpenApi = <OpenApi>schema;
+            mergeAllOfInternal(openApiSchema,false);
+            writeOutput(openApiSchema,argv.o);
+        }
+
+    });
+}

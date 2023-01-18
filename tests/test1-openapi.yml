@@ -1,0 +1,170 @@
+openapi: 3.0.3
+info:
+  title: Test
+  version: "2"
+
+paths:
+  /test/{accountId}:
+    get:
+      summary: Test GET operation
+      parameters:
+        - $ref: "#/components/parameters/Param1"
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSchema"
+        "400":
+           $ref: "#/components/responses/Response1"
+
+    post:
+      summary: Test POST operation
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        $ref: "#/components/requestBodies/RequestBody1"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSchema"
+  /test:
+    put:
+      summary: Test PUT operation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestSchema"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSchema"
+    patch:
+      summary: Test PATCH operation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestSchema"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSchema"
+    delete:
+      summary: Test DELETE operation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestSchema"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSchema"
+
+components:
+
+  parameters:
+
+    Param1:
+      name: param1
+      in: query
+      description: Test param
+      required: false
+      explode: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 1000
+        default: 1
+      example: 1
+
+    AccountId:
+      name: accountId
+      in: path
+      description: |
+        Identifier of the RingCentral account
+        (can be set to "~" to indicate account from the current authorization session)
+      required: true
+      style: simple
+      explode: false
+      schema:
+        type: string
+      example: "8000012345"
+
+  requestBodies:
+
+    RequestBody1:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RequestSchema"
+
+  responses:
+
+    Response1:
+      description: "Bad request, path, query or body parameters are invalid (HTTP 400) - pretty loooooooooooooooooooooooooooong string"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorModel'
+
+  schemas:
+
+    ErrorModel:
+      type: object
+      readOnly: true
+      description: Generalized API error structure
+      required:
+      - errorCode
+      - message
+      properties:
+        errorCode:
+          type: string
+          description: "Logical error code (typically, 3 letters followed with number, dash separated)"
+          example: XXX-123
+        message:
+          type: string
+          description: User-friendly error message
+          example: Something went wrong
+
+    RequestSchema:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+              example: "123456"
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+
+    ResponseSchema:
+      allOf:
+        - type: object
+          properties:
+            name:
+              type: string
+              example: "+123456"
+        - type: object
+          properties:
+            description:
+              type: string

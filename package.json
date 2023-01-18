@@ -3,14 +3,14 @@
     "@types/json-schema-merge-allof": "^0.6.0",
     "@types/minimist": "^1.2.1",
     "@types/node": "^15.12.4",
-    "typescript": "^4.3.4"
+    "typescript": "4.3.4"
   },
   "scripts": {
-    "compile": "npx tsc -w"
+    "compile": "npx tsc"
   },
   "dependencies": {
     "json-schema-merge-allof": "^0.8.1",
-    "json-schema-ref-parser": "^9.0.9",
+    "@apidevtools/json-schema-ref-parser": "^9.1.0",
     "minimist": "^1.2.5",
     "node-yaml": "^4.0.1"
   },
@@ -23,12 +23,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/equinor/openapi-flattener.git"
+    "url": "git+https://github.com/anikitin/openapi-flattener.git"
   },
   "bin": {
     "openapi-flattener": "./dist/flattener.js"
   },
-  "files":["./dist/flattener.js"],
+  "files": [
+    "./dist/flattener.js"
+  ],
   "keywords": [
     "OpenApi",
     "flattener",
@@ -40,7 +42,7 @@
   "author": "Henri Siik",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/equinor/openapi-flattener/issues"
+    "url": "https://github.com/anikitin/openapi-flattener/issues"
   },
-  "homepage": "https://github.com/equinor/openapi-flattener#readme"
+  "homepage": "https://github.com/anikitin/openapi-flattener#readme"
 }
