@@ -8,7 +8,7 @@ export interface OpenApi {
     paths: { [id: string]: Path }
     components?: Components
 }
-interface Path {
+export interface Path {
  'get': Operation
  'post': Operation
  'patch': Operation
@@ -69,17 +69,21 @@ export interface Components {
      schemas : {[key : string] : any}
      parameters : {[key : string] : any}
      examples : {[key : string] : any}
-     responses : {[key : string] : any}
-     requestBodies: {[key : string] : any}
-     callbacks: {[key : string] : any}
+     responses : {[key : string] : Response}
+     requestBodies: {[key : string] : RequestBody}
+     callbacks: {[key : string] : { [id: string]: Path } }
 }
+
+// export interface Callback {
+//     { [id: string]: Path }
+// }
 
 interface Contact {
     name: string
     url: string
 }
 
-interface Operation {
+export interface Operation {
     tags: string[]
     summary: string
     description: string
@@ -87,7 +91,7 @@ interface Operation {
     parameters: Parameter[]
     requestBody: RequestBody
     responses: { [responses in ResponseCode]: Response }
-    callbacks: { [id: string]: Path }
+    callbacks: {[key : string] : { [id: string]: Path } }
 }
 /*
 interface Get {

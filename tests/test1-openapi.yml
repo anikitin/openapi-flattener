@@ -26,6 +26,25 @@ paths:
         - $ref: '#/components/parameters/AccountId'
       requestBody:
         $ref: "#/components/requestBodies/RequestBody1"
+      callbacks:
+        TestCallback:
+          "/test":
+             post:
+               requestBody:
+                 content:
+                   'application/json':
+                      schema:
+                         allOf:
+                           - type: object
+                             properties:
+                               callbackParam1:
+                                 type: string
+                           - type: object
+                             additionalProperties: true
+               responses:
+                 "204":
+                   description: No content
+
       responses:
         "200":
           description: Successful response
@@ -40,7 +59,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RequestSchema"
+              allOf:
+                - $ref: '#/components/schemas/RequestSchema'
+                - type: object
+                  properties:
+                    index:
+                      type: integer
       responses:
         "200":
           description: Successful response
@@ -48,6 +72,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResponseSchema"
+      callbacks:
+        TestCallback2:
+          $ref: "#/components/callbacks/TestCallback2"
+
     patch:
       summary: Test PATCH operation
       requestBody:
@@ -71,6 +99,15 @@ paths:
               $ref: "#/components/schemas/RequestSchema"
       responses:
         "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSchema"
+    head:
+      summary: Test HEAD operation
+      responses:
+        "202":
           description: Successful response
           content:
             application/json:
@@ -114,7 +151,37 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/RequestSchema"
+            allOf:
+              - $ref: '#/components/schemas/RequestSchema'
+              - type: object
+                properties:
+                  index:
+                    type: integer
+
+  callbacks:
+    TestCallback2:
+      "/test2":
+          post:
+            requestBody:
+              content:
+                'application/json':
+                  schema:
+                      allOf:
+                        - type: object
+                          properties:
+                            callbackParam2:
+                              type: string
+                        - type: object
+                          required:
+                            - callbackParam2
+                            - callbackParam3
+                          properties:
+                            callbackParam3:
+                              type: boolean
+            responses:
+              "204":
+                description: No content
+
 
   responses:
 
@@ -123,7 +190,12 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorModel'
+            allOf:
+              - $ref: '#/components/schemas/ErrorModel'
+              - type: object
+                properties:
+                  notes:
+                    type: string
 
   schemas:
 

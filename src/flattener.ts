@@ -5,7 +5,7 @@ import path from 'path';
 import mergeAllOf, {Options} from 'json-schema-merge-allof';
 import {dereference, parse, JSONSchema,} from '@apidevtools/json-schema-ref-parser';
 import minimist from 'minimist';
-import {OpenApi, RequestBody, Response} from './Interfaces/OpenApi'
+import {OpenApi, Path, Operation, RequestBody, Response} from './Interfaces/OpenApi'
 
 const defaultOptions: Options = {
     ignoreAdditionalProperties: true,
@@ -22,7 +22,7 @@ if (!argv.s || !argv.o) {
 const input = path.resolve(argv.s);
 
 
-function mergeResponse(key: string, response: Response) {
+function mergeResponse(response: Response) {
     if (!response?.content || !('application/json' in response.content)) return
 
     let responseSchema = response.content['application/json']?.schema
@@ -34,6 +34,8 @@ function mergeResponse(key: string, response: Response) {
 }
 
 function mergeRequestBody(requestBody: RequestBody) {
+    if (!requestBody?.content || !('application/json' in requestBody.content)) return
+
     let bodySchema = requestBody.content['application/json']?.schema
     if (!bodySchema) return
 
@@ -42,73 +44,74 @@ function mergeRequestBody(requestBody: RequestBody) {
         requestBody.content['application/json'].schema = mergedSchema
 }
 
+function mergeOperation(operation: Operation) {
+    if (operation.responses)
+        Object.entries(operation.responses).forEach(([key, response]) => {
+            mergeResponse(response)
+        })
+    if (operation.requestBody) {
+        mergeRequestBody(operation.requestBody)
+    }
+    if (operation.callbacks) {
+        Object.entries(operation.callbacks).forEach(([key, callbackPaths]) => {
+            console.log(key);
+            Object.entries(callbackPaths).forEach(([id, callback]) => {
+                console.log(id);
+                mergePath(callback)
+            })
+        })
+    }
+}
+
+function mergePath(path: Path) {
+    if (path.get) {
+        console.log('GET')
+        mergeOperation(path.get)
+    }
+
+    if (path.head) {
+        console.log('HEAD')
+        mergeOperation(path.head)
+    }
+
+    if (path.post) {
+        console.log('POST')
+        mergeOperation(path.post)
+    }
+
+    if (path.patch) {
+        console.log('PATCH')
+        mergeOperation(path.patch)
+    }
+
+    if (path.put) {
+        console.log('PUT')
+        mergeOperation(path.put)
+    }
+
+    if (path.delete) {
+        console.log('DELETE')
+        mergeOperation(path.delete)
+    }
+
+}
+
 function mergeAllOfInternal(oas: OpenApi, deref: boolean) {
     Object.entries(oas.paths).forEach(([_, path]) => {
         console.log(_);
-        if (path.get) {
-            console.log('GET')
-            Object.entries(path.get.responses).forEach(([key, response]) => {
-                mergeResponse(key, response)
-            })
-        }
-
-        if (path.head) {
-            console.log('HEAD')
-            Object.entries(path.head.responses).forEach(([key, response]) => {
-                mergeResponse(key, response)
-            })
-        }
-
-        if (path.post) {
-            console.log('POST')
-            Object.entries(path.post.responses).forEach(([key, response]) => {
-                mergeResponse(key, response);
-            })
-            if (path.post.requestBody) {
-                mergeRequestBody(path.post.requestBody)
-            }
-        }
-
-        if (path.patch) {
-            console.log('PATCH')
-            Object.entries(path.patch.responses).forEach(([key, response]) => {
-                mergeResponse(key, response);
-            })
-            if (path.patch.requestBody) {
-                mergeRequestBody(path.patch.requestBody)
-            }
-        }
-
-        if (path.put) {
-            console.log('PUT')
-            Object.entries(path.put.responses).forEach(([key, response]) => {
-                mergeResponse(key, response);
-            })
-            if (path.put.requestBody) {
-                mergeRequestBody(path.put.requestBody)
-            }
-        }
-
-        if (path.delete) {
-            console.log('DELETE')
-            Object.entries(path.delete.responses).forEach(([key, response]) => {
-                mergeResponse(key, response);
-            })
-            if (path.delete.requestBody) {
-                mergeRequestBody(path.delete.requestBody)
-            }
-        }
+        mergePath(path);
 
         if (typeof oas.components !== 'undefined' && oas.components) {
             if (deref) {
               // We have already dereferenced everything, don't need components in the output
-              delete oas.components;
+              //delete oas.components;
             } else {
                 let components = oas.components;
-                if (components.parameters)
-                    Object.entries(components.parameters).forEach(([key, schema]) => {
-                        components.parameters[key] = mergeAllOf(schema, defaultOptions)
-                    })
+                // No complex schemas in parameters
+                // if (components.parameters)
+                //     Object.entries(components.parameters).forEach(([key, schema]) => {
+                //         components.parameters[key] = mergeAllOf(schema, defaultOptions)
+                //     })
                 if (components.schemas)
                     Object.entries(components.schemas).forEach(([key, schema]) => {
                         components.schemas[key] = mergeAllOf(schema, defaultOptions)
@@ -118,16 +121,18 @@ function mergeAllOfInternal(oas: OpenApi, deref: boolean) {
                         components.examples[key] = mergeAllOf(schema, defaultOptions)
                     })
                 if (components.responses)
-                    Object.entries(components.responses).forEach(([key, schema]) => {
-                        components.responses[key] = mergeAllOf(schema, defaultOptions)
+                    Object.entries(components.responses).forEach(([key, response]) => {
+                        mergeResponse(response)
                     })
                 if (components.requestBodies)
-                    Object.entries(components.requestBodies).forEach(([key, schema]) => {
-                        components.requestBodies[key] = mergeAllOf(schema, defaultOptions)
+                    Object.entries(components.requestBodies).forEach(([key, requestBody]) => {
+                        mergeRequestBody(requestBody)
                     })
                 if (components.callbacks)
-                    Object.entries(components.callbacks).forEach(([key, schema]) => {
-                        components.callbacks[key] = mergeAllOf(schema, defaultOptions)
+                    Object.entries(components.callbacks).forEach(([key, callbackPaths]) => {
+                      Object.entries(callbackPaths).forEach(([key, path]) => {
+                        mergePath(path)
+                      })
                     })
             }
         }
@@ -143,7 +148,7 @@ function writeOutput(oas: OpenApi, outFile: string) {
     } else if (ext.match(/^\.?(yaml|yml)$/)) {
         if (oas) {
             let yaml = require('node-yaml');
-            yaml.writeSync(output, oas, { encoding: 'utf8', noRefs: true, lineWidth: -1})
+            yaml.writeSync(output, oas, { encoding: 'utf8', noRefs: true, lineWidth: -1, forceQuotes: true})
         }
     } else {
         console.error(`Unrecognised output file type: ${output}`);
@@ -153,35 +158,37 @@ function writeOutput(oas: OpenApi, outFile: string) {
 }
 
 
-if (argv.d) {
+//if (argv.d) {
 
     // This option enables both "allOf" resolution and dereferencing
 
-    dereference(input, {}, (err: Error | null, schema: JSONSchema | undefined) => {
+    dereference(input, { dereference: { circular: "ignore" } }, (err: Error | null, schema: JSONSchema | undefined) => {
         if (err) {
             console.error(err);
         } else {
 
             //we get an object which has OpenApi keys as properties, so we cast it here
             let openApiSchema: OpenApi = <OpenApi>schema;
-            mergeAllOfInternal(openApiSchema,true);
+            if (argv.m)
+              mergeAllOfInternal(openApiSchema,true);
             writeOutput(openApiSchema,argv.o);
         }
     });
 
-} else {
+// It was supposed to support allOf-merging without dereferencing, but actually it does not work
+// } else {
 
-    parse(input, {}, (err: Error | null, schema: JSONSchema | undefined) => {
+//     parse(input, {}, (err: Error | null, schema: JSONSchema | undefined) => {
 
-        if (err) {
-            console.error(err);
-        } else {
+//         if (err) {
+//             console.error(err);
+//         } else {
 
-            //we get an object which has OpenApi keys as properties, so we cast it here
-            let openApiSchema: OpenApi = <OpenApi>schema;
-            mergeAllOfInternal(openApiSchema,false);
-            writeOutput(openApiSchema,argv.o);
-        }
+//             //we get an object which has OpenApi keys as properties, so we cast it here
+//             let openApiSchema: OpenApi = <OpenApi>schema;
+//             mergeAllOfInternal(openApiSchema,false);
+//             writeOutput(openApiSchema,argv.o);
+//         }
 
-    });
-}
+//     });
+// }
